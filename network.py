@@ -287,6 +287,9 @@ def send_single_uuv_from_csv(
             z = float(row.get("z", 0.0))
             yaw = float(row.get("yaw_deg", row.get("yaw", 0.0)))
             sim_t = float(row.get("t", 0.0))
+            u_val = float(row.get("u_m_s", row.get("u", 0.0)))
+            r_val = float(row.get("r_deg_s", row.get("r", 0.0)))
+            dr_val = float(row.get("dr_deg_s2", row.get("dr", 0.0)))
 
             digits = "".join(ch for ch in uuv_id if ch.isdigit())
             node_index = max(1, int(digits or "1"))
@@ -302,18 +305,18 @@ def send_single_uuv_from_csv(
                 "pitch": 0.0,
                 "roll": 0.0,
                 "yaw": yaw,
-                "u": 0.0,
+                "u": u_val,
                 "v": 0.0,
                 "w": 0.0,
                 "p": 0.0,
                 "q": 0.0,
-                "r": 0.0,
+                "r": r_val,
                 "du": 0.0,
                 "dv": 0.0,
                 "dw": 0.0,
                 "dp": 0.0,
                 "dq": 0.0,
-                "dr": 0.0,
+                "dr": dr_val,
                 "lat": 0.0,
                 "lon": 0.0,
                 "Spare_1": 1,
