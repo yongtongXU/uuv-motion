@@ -57,14 +57,14 @@ def iter_segment_samples(
 
     duration = seg_dist / speed_m_s
     steps = max(1, int(math.ceil(duration / dt)))
-    yaw = math.atan2(end[1] - start[1], end[0] - start[0])
+    yaw_deg = math.degrees(math.atan2(end[1] - start[1], end[0] - start[0]))
 
     for k in range(1, steps + 1):
         alpha = k / steps
         x = start[0] + (end[0] - start[0]) * alpha
         y = start[1] + (end[1] - start[1]) * alpha
         z = start[2] + (end[2] - start[2]) * alpha
-        yield x, y, z, yaw
+        yield x, y, z, yaw_deg
 
 
 def estimate_rows(points: List[Tuple[float, float, float]], speed_m_s: float, dt: float) -> int:
@@ -100,12 +100,12 @@ def simulate_single_uuv_to_csv(
 
     with out_path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["uuv_id", "step_idx", "t", "x", "y", "z", "yaw", "target_wp_idx"])
+        writer.writerow(["uuv_id", "step_idx", "t", "x", "y", "z", "yaw_deg", "target_wp_idx"])
 
         t = 0.0
         step_idx = 0
         if len(points) > 1:
-            first_yaw = math.atan2(points[1][1] - points[0][1], points[1][0] - points[0][0])
+            first_yaw = math.degrees(math.atan2(points[1][1] - points[0][1], points[1][0] - points[0][0]))
         else:
             first_yaw = 0.0
 
@@ -129,7 +129,7 @@ def simulate_single_uuv_to_csv(
                 break
             start = points[wp_idx]
             end = points[wp_idx + 1]
-            for x, y, z, yaw in iter_segment_samples(start, end, speed_m_s, dt):
+            for x, y, z, yaw_deg in iter_segment_samples(start, end, speed_m_s, dt):
                 step_idx += 1
                 t += dt
                 writer.writerow(
@@ -140,7 +140,7 @@ def simulate_single_uuv_to_csv(
                         round(x, 3),
                         round(y, 3),
                         round(z, 3),
-                        round(yaw, 6),
+                        round(yaw_deg, 6),
                         wp_idx + 1,
                     ]
                 )

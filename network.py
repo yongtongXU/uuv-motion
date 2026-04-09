@@ -285,14 +285,17 @@ def send_single_uuv_from_csv(
             x = float(row.get("x", 0.0))
             y = float(row.get("y", 0.0))
             z = float(row.get("z", 0.0))
-            yaw = float(row.get("yaw", 0.0))
+            yaw = float(row.get("yaw_deg", row.get("yaw", 0.0)))
             sim_t = float(row.get("t", 0.0))
+
+            digits = "".join(ch for ch in uuv_id if ch.isdigit())
+            node_index = max(1, int(digits or "1"))
 
             values = {
                 "uuv_id": uuv_id,
                 "Head": "$RS",
                 "Length": "Length",
-                "node_desc": f"U-3-{max(1, int(re.sub(r'\\D', '', uuv_id) or '1'))}-J",
+                "node_desc": f"U-3-{node_index}-J",
                 "x": x,
                 "y": y,
                 "z": z,
