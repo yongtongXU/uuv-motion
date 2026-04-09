@@ -60,9 +60,7 @@ def build_comb_waypoints(
     return [{"x": round(x, 3), "y": round(y, 3), "z": round(z, 3)} for x, y, z in compact]
 
 
-def plan_paths() -> Dict:
-    cfg = load_init(INIT_PATH)
-
+def _plan_comb_no_obstacle(cfg: Dict, planner_cfg: Dict, obstacles: List[Dict]) -> Dict:
     area = cfg.get("area", {})
     area_length = float(area.get("length", 0))
     area_width = float(area.get("width", 0))
@@ -133,9 +131,10 @@ def plan_paths() -> Dict:
         "schema_version": "1.0",
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "planner": {
-            "type": "comb_coverage_waypoints_only",
+            "type": planner_cfg.get("type", "comb_no_obstacle"),
             "sensor_width": sensor_width,
             "max_waypoints_per_uuv": max_waypoints_per_uuv,
+            "obstacle_count": len(obstacles),
         },
         "area": {"length": area_length, "width": area_width},
         "summary": {
@@ -146,6 +145,34 @@ def plan_paths() -> Dict:
         },
         "paths": paths,
     }
+
+
+def _plan_comb_with_obstacle(cfg: Dict, planner_cfg: Dict, obstacles: List[Dict]) -> Dict:
+    # Placeholder for future obstacle-aware algorithm.
+    raise NotImplementedError(
+        "planner.type='comb_with_obstacle' is reserved for future obstacle-aware planning. "
+        "Please implement obstacle processing with cfg['environment']['obstacles']."
+    )
+
+
+def plan_paths() -> Dict:
+    cfg = load_init(INIT_PATH)
+    planner_cfg = cfg.get("planner", {})
+    planner_type = planner_cfg.get("type", "comb_no_obstacle")
+    environment = cfg.get("environment", {})
+    obstacles = environment.get("obstacles", [])
+    if not isinstance(obstacles, list):
+        raise ValueError("init.json: environment.obstacles must be a list")
+
+    planners = {
+        "comb_no_obstacle": _plan_comb_no_obstacle,
+        "comb_with_obstacle": _plan_comb_with_obstacle,
+    }
+    planner_fn = planners.get(planner_type)
+    if planner_fn is None:
+        supported = ", ".join(sorted(planners.keys()))
+        raise ValueError(f"Unsupported planner.type='{planner_type}'. Supported: {supported}")
+    return planner_fn(cfg, planner_cfg, obstacles)
 
 
 def main() -> None:

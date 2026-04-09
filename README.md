@@ -102,8 +102,64 @@ python main.py --cli
 - `scene.sample_rate_hz`：系统帧率（例如 `50`）
 - `scene.world_frame`：坐标系（NED）
 - `area.length`、`area.width`：任务区域
+- `planner.type`：规划器类型（当前 `comb_no_obstacle`，预留 `comb_with_obstacle`）
 - `uuv_template.sonser`：探测宽度（用于梳状覆盖间距）
 - `uuvs[]`：每台 UUV 初始状态（`id` + `pose`）
+- `environment.obstacles[]`：障碍物列表（预留给障碍物规划）
+
+### 障碍物参数（预留接口）
+后续接入障碍物规划时，建议在 `config/init.json -> environment.obstacles` 使用以下结构：
+
+- 通用字段：
+  - `id`：障碍物唯一标识
+  - `enabled`：是否启用（`true/false`）
+  - `type`：几何类型，建议 `circle` / `rectangle` / `polygon`
+  - `z_min`、`z_max`：障碍物生效深度范围（NED 下为正向下，单位 m）
+  - `safety_margin_m`：安全膨胀半径（单位 m）
+- `circle` 类型：
+  - `center`：`{"x": ..., "y": ...}`
+  - `radius`：半径（m）
+- `rectangle` 类型：
+  - `center`：`{"x": ..., "y": ...}`
+  - `length`、`width`：长宽（m）
+  - `yaw_deg`：绕 Z 轴旋转角（度）
+- `polygon` 类型：
+  - `points`：顶点数组，按顺/逆时针给出，例如 `[{"x":0,"y":0},{"x":10,"y":0}, ...]`
+
+示例：
+
+```json
+"environment": {
+  "obstacles": [
+    {
+      "id": "obs_c1",
+      "enabled": true,
+      "type": "circle",
+      "center": { "x": 300.0, "y": 450.0 },
+      "radius": 80.0,
+      "z_min": 0.0,
+      "z_max": 100.0,
+      "safety_margin_m": 15.0
+    },
+    {
+      "id": "obs_r1",
+      "enabled": true,
+      "type": "rectangle",
+      "center": { "x": 700.0, "y": 900.0 },
+      "length": 160.0,
+      "width": 60.0,
+      "yaw_deg": 30.0,
+      "z_min": 0.0,
+      "z_max": 80.0,
+      "safety_margin_m": 10.0
+    }
+  ]
+}
+```
+
+说明：
+- 当前默认规划器 `comb_no_obstacle` 不会使用障碍物字段。
+- 当 `planner.type` 切到 `comb_with_obstacle` 后，规划器将读取这些参数做避障。
 
 ## `path.json`
 由 `planning.py` 生成，包含：

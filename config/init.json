@@ -24,6 +24,13 @@
     "length": 10000.0,
     "width": 10000.0
   },
+  "planner": {
+    "type": "comb_no_obstacle",
+    "params": {}
+  },
+  "environment": {
+    "obstacles": []
+  },
   "uuvs": [
     {
       "id": "uuv_1",
