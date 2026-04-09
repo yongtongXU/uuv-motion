@@ -1,39 +1,184 @@
-# UUV-motion
+﻿# UUV Motion
 
-#### 介绍
-{**以下是 Gitee 平台说明，您可以替换此简介**
-Gitee 是 OSCHINA 推出的基于 Git 的代码托管平台（同时支持 SVN）。专为开发者提供稳定、高效、安全的云端软件开发协作平台
-无论是个人、团队、或是企业，都能够用 Gitee 实现代码托管、项目管理、协作开发。企业项目请看 [https://gitee.com/enterprises](https://gitee.com/enterprises)}
+一个用于 **6 台同构水下机器人（UUV）** 的跑点仿真与网络发送项目，包含：
+- 全覆盖梳状路径规划（支持返航起点）
+- 多进程运动仿真并生成轨迹 CSV
+- 多进程 TCP 按帧发送路径点
+- GUI 一站式控制（配置、规划、仿真、发送、状态监控）
 
-#### 软件架构
-软件架构说明
+## 1. 坐标系约定
+本项目使用 **NED** 坐标系：
+- `X`：North（北，正方向）
+- `Y`：East（东，正方向）
+- `Z`：Down（向地心，正方向）
 
+`config/init.json` 中已写明：`"world_frame": "NED"`。
 
-#### 安装教程
+---
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+## 2. 目录结构
 
-#### 使用说明
+```text
+uuv-motion/
+├─ config/
+│  ├─ init.json            # 场景与UUV初始配置
+│  ├─ network_format.json  # TCP 报文模板与正则转换规则
+│  └─ network_endpoints.json # 每个uuv_id对应的IP/端口配置
+├─ main.py                  # GUI 主入口（推荐）
+├─ mian.py                  # 兼容入口（历史拼写）
+├─ planning.py              # 路径规划（输出 path.json）
+├─ motion_server.py         # 多进程轨迹仿真（输出 trajectories/*.csv）
+├─ network.py               # 多进程 UDP 发送端
+├─ show_planned_paths.py    # 规划路径图输出
+├─ show_trajectory_cv.py    # OpenCV 轨迹回放
+├─ path.json                # 规划结果
+├─ trajectories/            # 轨迹输出目录
+├─ requirements.txt         # Python 依赖
+└─ README.md
+```
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+---
 
-#### 参与贡献
+## 3. 环境要求
+- Python 3.10+（建议 3.10/3.11）
+- Windows/Linux/macOS
+- GUI 模式需要 `tkinter`（Python 自带，但安装时需包含 Tk 支持）
 
-1.  Fork 本仓库
-2.  新建 Feat_xxx 分支
-3.  提交代码
-4.  新建 Pull Request
+安装依赖：
 
+```bash
+pip install -r requirements.txt
+```
 
-#### 特技
+---
 
-1.  使用 Readme\_XXX.md 来支持不同的语言，例如 Readme\_en.md, Readme\_zh.md
-2.  Gitee 官方博客 [blog.gitee.com](https://blog.gitee.com)
-3.  你可以 [https://gitee.com/explore](https://gitee.com/explore) 这个地址来了解 Gitee 上的优秀开源项目
-4.  [GVP](https://gitee.com/gvp) 全称是 Gitee 最有价值开源项目，是综合评定出的优秀开源项目
-5.  Gitee 官方提供的使用手册 [https://gitee.com/help](https://gitee.com/help)
-6.  Gitee 封面人物是一档用来展示 Gitee 会员风采的栏目 [https://gitee.com/gitee-stars/](https://gitee.com/gitee-stars/)
+## 4. 快速开始
+
+### 4.1 启动 GUI（推荐）
+
+```bash
+python main.py
+```
+
+GUI 内支持：
+- 读取/写入 `init.json`
+- 编辑每台 UUV 初始状态
+- 设置区域范围（`area.length/area.width`）
+- 一键规划
+- 一键运行 motion
+- 一键发送 / 暂停发送 / 停止发送
+- 网络连接检测（TCP）
+- 每台 UUV 独立 IP+端口配置
+- 实时状态显示（待命、正在发送、暂停发送、发送结束）
+
+### 4.2 命令行模式
+
+仅规划：
+```bash
+python planning.py
+```
+
+运行运动仿真并生成轨迹：
+```bash
+python motion_server.py
+```
+
+TCP 发送（多进程）：
+```bash
+python network.py
+```
+
+GUI 的 CLI 兼容入口：
+```bash
+python main.py --cli
+```
+
+---
+
+## 5. 配置文件说明
+
+## `config/init.json`
+关键字段：
+- `scene.sample_rate_hz`：系统帧率（例如 `50`）
+- `scene.world_frame`：坐标系（NED）
+- `area.length`、`area.width`：任务区域
+- `uuv_template.sonser`：探测宽度（用于梳状覆盖间距）
+- `uuvs[]`：每台 UUV 初始状态（`id` + `pose`）
+
+## `path.json`
+由 `planning.py` 生成，包含：
+- 每台 UUV 的 `waypoints`
+- 子区域带宽信息
+- 路径点数量统计
+
+## `config/network_format.json`
+网络发送模板配置，支持：
+- `fields`：按顺序定义发送字段（逗号分隔）
+- `value_formats`：各字段格式化精度
+- `regex_rules`：发送前正则替换规则（可用于帧头帧尾兼容转换）
+
+例如可定义为：
+`$,uuv_id,x,y,z,pitch,roll,yaw,u,v,w,p,q,r,time*&&`
+
+---
+
+## 6. 网络发送协议
+`network.py` 发送格式固定为：
+
+```text
+$uuv_id,x,y,z,pitch,roll,yaw,time*&&
+```
+
+示例：
+
+```text
+$uuv_1,100.000,200.000,20.000,0.000000,0.000000,1.570796,2.340*&&
+```
+
+说明：
+- TCP 多进程发送：每台 UUV 一个进程、一个 socket
+- 默认目标为 `127.0.0.1:5000+i`
+- GUI 中可为每个 UUV 单独设置 `IP/Port`
+- 端点也可由 `config/network_endpoints.json` 统一管理
+
+---
+
+## 7. 可视化工具
+
+规划路径图（静态图）：
+```bash
+python show_planned_paths.py
+```
+
+轨迹回放（OpenCV）：
+```bash
+python show_trajectory_cv.py
+```
+
+---
+
+## 8. 常见问题
+
+1. GUI 启动失败提示 `tkinter` 相关错误
+- 请确认当前 Python 环境包含 Tk 支持。
+
+2. OpenCV 回放卡顿
+- 降低 `--display-fps` 或增大 `--speedup`。
+
+3. 网络端无数据
+- 检查接收端 IP/端口是否和 GUI 端点配置一致。
+- 确认系统防火墙未阻止 UDP。
+
+---
+
+## 9. 开源协作建议
+- 提交 PR 前建议至少执行：
+  - `python planning.py`
+  - `python motion_server.py --max-rows-per-uuv 100`
+  - `python network.py --max-frames 3`
+- 保持 `config/init.json`、`path.json` 字段兼容，避免破坏 GUI 读写。
+
+---
+
+## 10. License
+见项目根目录 [LICENSE](LICENSE)。

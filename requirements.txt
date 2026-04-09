@@ -1,0 +1,10 @@
+﻿# Third-party dependencies for uuv-motion
+# Install with: pip install -r requirements.txt
+
+matplotlib>=3.8,<4
+numpy>=1.24,<3
+opencv-python>=4.8,<5
+
+# Note:
+# - tkinter is used by main.py GUI and is part of Python stdlib,
+#   but your Python distribution must include Tk support.

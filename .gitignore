@@ -91,3 +91,11 @@ htmlcov/
 # =======================
 .idea/               # JetBrains
 *.bak               # 备份文件
+
+
+# =======================
+# Trajectories
+# keep folder marker only
+# =======================
+trajectories/*
+!trajectories/.gitkeep

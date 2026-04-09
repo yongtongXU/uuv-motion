@@ -1,0 +1,167 @@
+{
+  "schema_version": "1.0",
+  "scene": {
+    "name": "uuv_6_homogeneous_waypoint_run",
+    "time_step": 0.02,
+    "sample_rate_hz": 50.0,
+    "world_frame": "NED",
+    "frame_note": "NED: North=X+, East=Y+, Down=Z+",
+    "water_density_kg_m3": 1025.0,
+    "gravity_m_s2": 9.81
+  },
+  "uuv_template": {
+    "model": "UUV-HOMO-01",
+    "mass_kg": 120.0,
+    "length_m": 1.8,
+    "radius_m": 0.2,
+    "max_speed_m_s": 1.5,
+    "max_accel_m_s2": 0.6,
+    "max_yaw_rate_rad_s": 0.35,
+    "max_pitch_rate_rad_s": 0.2,
+    "sonser": 100
+  },
+  "area": {
+    "length": 10000.0,
+    "width": 10000.0
+  },
+  "uuvs": [
+    {
+      "id": "uuv_1",
+      "pose": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 20.0,
+        "roll": 0.0,
+        "pitch": 0.0,
+        "yaw": 0.0
+      },
+      "twist": {
+        "u": 0.0,
+        "v": 0.0,
+        "w": 0.0,
+        "p": 0.0,
+        "q": 0.0,
+        "r": 0.0
+      },
+      "health": {
+        "battery": 1.0,
+        "status": "ready"
+      }
+    },
+    {
+      "id": "uuv_2",
+      "pose": {
+        "x": 0.0,
+        "y": 4.0,
+        "z": 20.0,
+        "roll": 0.0,
+        "pitch": 0.0,
+        "yaw": 0.0
+      },
+      "twist": {
+        "u": 0.0,
+        "v": 0.0,
+        "w": 0.0,
+        "p": 0.0,
+        "q": 0.0,
+        "r": 0.0
+      },
+      "health": {
+        "battery": 1.0,
+        "status": "ready"
+      }
+    },
+    {
+      "id": "uuv_3",
+      "pose": {
+        "x": 0.0,
+        "y": 8.0,
+        "z": 20.0,
+        "roll": 0.0,
+        "pitch": 0.0,
+        "yaw": 0.0
+      },
+      "twist": {
+        "u": 0.0,
+        "v": 0.0,
+        "w": 0.0,
+        "p": 0.0,
+        "q": 0.0,
+        "r": 0.0
+      },
+      "health": {
+        "battery": 1.0,
+        "status": "ready"
+      }
+    },
+    {
+      "id": "uuv_4",
+      "pose": {
+        "x": 0.0,
+        "y": 12.0,
+        "z": 20.0,
+        "roll": 0.0,
+        "pitch": 0.0,
+        "yaw": 0.0
+      },
+      "twist": {
+        "u": 0.0,
+        "v": 0.0,
+        "w": 0.0,
+        "p": 0.0,
+        "q": 0.0,
+        "r": 0.0
+      },
+      "health": {
+        "battery": 1.0,
+        "status": "ready"
+      }
+    },
+    {
+      "id": "uuv_5",
+      "pose": {
+        "x": 0.0,
+        "y": 16.0,
+        "z": 20.0,
+        "roll": 0.0,
+        "pitch": 0.0,
+        "yaw": 0.0
+      },
+      "twist": {
+        "u": 0.0,
+        "v": 0.0,
+        "w": 0.0,
+        "p": 0.0,
+        "q": 0.0,
+        "r": 0.0
+      },
+      "health": {
+        "battery": 1.0,
+        "status": "ready"
+      }
+    },
+    {
+      "id": "uuv_6",
+      "pose": {
+        "x": 0.0,
+        "y": 20.0,
+        "z": 20.0,
+        "roll": 0.0,
+        "pitch": 0.0,
+        "yaw": 0.0
+      },
+      "twist": {
+        "u": 0.0,
+        "v": 0.0,
+        "w": 0.0,
+        "p": 0.0,
+        "q": 0.0,
+        "r": 0.0
+      },
+      "health": {
+        "battery": 1.0,
+        "status": "ready"
+      }
+    }
+  ]
+}
