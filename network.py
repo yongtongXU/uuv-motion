@@ -285,10 +285,21 @@ def send_single_uuv_from_csv(
             x = float(row.get("x", 0.0))
             y = float(row.get("y", 0.0))
             z = float(row.get("z", 0.0))
+            roll = float(row.get("roll_deg", row.get("roll", 0.0)))
+            pitch = float(row.get("pitch_deg", row.get("pitch", 0.0)))
             yaw = float(row.get("yaw_deg", row.get("yaw", 0.0)))
             sim_t = float(row.get("t", 0.0))
             u_val = float(row.get("u_m_s", row.get("u", 0.0)))
+            v_val = float(row.get("v_m_s", row.get("v", 0.0)))
+            w_val = float(row.get("w_m_s", row.get("w", 0.0)))
+            p_val = float(row.get("p_deg_s", row.get("p", 0.0)))
+            q_val = float(row.get("q_deg_s", row.get("q", 0.0)))
             r_val = float(row.get("r_deg_s", row.get("r", 0.0)))
+            du_val = float(row.get("du_m_s2", row.get("du", 0.0)))
+            dv_val = float(row.get("dv_m_s2", row.get("dv", 0.0)))
+            dw_val = float(row.get("dw_m_s2", row.get("dw", 0.0)))
+            dp_val = float(row.get("dp_deg_s2", row.get("dp", 0.0)))
+            dq_val = float(row.get("dq_deg_s2", row.get("dq", 0.0)))
             dr_val = float(row.get("dr_deg_s2", row.get("dr", 0.0)))
 
             digits = "".join(ch for ch in uuv_id if ch.isdigit())
@@ -302,20 +313,20 @@ def send_single_uuv_from_csv(
                 "x": x,
                 "y": y,
                 "z": z,
-                "pitch": 0.0,
-                "roll": 0.0,
+                "pitch": pitch,
+                "roll": roll,
                 "yaw": yaw,
                 "u": u_val,
-                "v": 0.0,
-                "w": 0.0,
-                "p": 0.0,
-                "q": 0.0,
+                "v": v_val,
+                "w": w_val,
+                "p": p_val,
+                "q": q_val,
                 "r": r_val,
-                "du": 0.0,
-                "dv": 0.0,
-                "dw": 0.0,
-                "dp": 0.0,
-                "dq": 0.0,
+                "du": du_val,
+                "dv": dv_val,
+                "dw": dw_val,
+                "dp": dp_val,
+                "dq": dq_val,
                 "dr": dr_val,
                 "lat": 0.0,
                 "lon": 0.0,

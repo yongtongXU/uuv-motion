@@ -31,6 +31,75 @@ def wrap_deg(angle: float) -> float:
     return ((angle + 180.0) % 360.0) - 180.0
 
 
+def clamp_abs(v: float, lim: float) -> float:
+    return clamp(v, -abs(lim), abs(lim))
+
+
+def body_to_world_velocity(
+    u: float,
+    v: float,
+    w: float,
+    roll_deg: float,
+    pitch_deg: float,
+    yaw_deg: float,
+) -> Tuple[float, float, float]:
+    rr = math.radians(roll_deg)
+    pr = math.radians(pitch_deg)
+    yr = math.radians(yaw_deg)
+
+    cr, sr = math.cos(rr), math.sin(rr)
+    cp, sp = math.cos(pr), math.sin(pr)
+    cy, sy = math.cos(yr), math.sin(yr)
+
+    r11 = cy * cp
+    r12 = cy * sp * sr - sy * cr
+    r13 = cy * sp * cr + sy * sr
+    r21 = sy * cp
+    r22 = sy * sp * sr + cy * cr
+    r23 = sy * sp * cr - cy * sr
+    r31 = -sp
+    r32 = cp * sr
+    r33 = cp * cr
+
+    vx = r11 * u + r12 * v + r13 * w
+    vy = r21 * u + r22 * v + r23 * w
+    vz = r31 * u + r32 * v + r33 * w
+    return vx, vy, vz
+
+
+def world_to_body_velocity(
+    vx: float,
+    vy: float,
+    vz: float,
+    roll_deg: float,
+    pitch_deg: float,
+    yaw_deg: float,
+) -> Tuple[float, float, float]:
+    rr = math.radians(roll_deg)
+    pr = math.radians(pitch_deg)
+    yr = math.radians(yaw_deg)
+
+    cr, sr = math.cos(rr), math.sin(rr)
+    cp, sp = math.cos(pr), math.sin(pr)
+    cy, sy = math.cos(yr), math.sin(yr)
+
+    r11 = cy * cp
+    r12 = cy * sp * sr - sy * cr
+    r13 = cy * sp * cr + sy * sr
+    r21 = sy * cp
+    r22 = sy * sp * sr + cy * cr
+    r23 = sy * sp * cr - cy * sr
+    r31 = -sp
+    r32 = cp * sr
+    r33 = cp * cr
+
+    # body = R^T * world
+    u = r11 * vx + r21 * vy + r31 * vz
+    v = r12 * vx + r22 * vy + r32 * vz
+    w = r13 * vx + r23 * vy + r33 * vz
+    return u, v, w
+
+
 def get_sample_rate(init_cfg: Dict) -> float:
     scene = init_cfg.get("scene", {})
     hz = scene.get("sample_rate_hz")
@@ -72,7 +141,11 @@ def simulate_single_uuv_to_csv(
     max_speed_m_s: float,
     max_accel_m_s2: float,
     max_yaw_rate_deg_s: float,
+    max_pitch_rate_deg_s: float,
+    max_roll_rate_deg_s: float,
     max_yaw_accel_deg_s2: float,
+    max_pitch_accel_deg_s2: float,
+    max_roll_accel_deg_s2: float,
     sample_rate_hz: float,
     out_path: Path,
     flush_rows: int,
@@ -93,9 +166,17 @@ def simulate_single_uuv_to_csv(
     x = float(points[0][0])
     y = float(points[0][1])
     z = float(points[0][2])
+    roll_deg = float(pose.get("roll", 0.0))
+    pitch_deg = float(pose.get("pitch", 0.0))
     yaw_deg = float(pose.get("yaw", 0.0))
-    speed = max(0.0, float(twist.get("u", 0.0)))
-    yaw_rate_deg_s = float(twist.get("r", 0.0))
+    u_m_s = float(twist.get("u", 0.0))
+    v_m_s = float(twist.get("v", 0.0))
+    w_m_s = float(twist.get("w", 0.0))
+    p_deg_s = float(twist.get("p", 0.0))
+    q_deg_s = float(twist.get("q", 0.0))
+    r_deg_s = float(twist.get("r", 0.0))
+
+    max_roll_deg = 35.0
 
     with out_path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.writer(f)
@@ -107,10 +188,21 @@ def simulate_single_uuv_to_csv(
                 "x",
                 "y",
                 "z",
+                "roll_deg",
+                "pitch_deg",
                 "yaw_deg",
-                "r_deg_s",
-                "dr_deg_s2",
                 "u_m_s",
+                "v_m_s",
+                "w_m_s",
+                "p_deg_s",
+                "q_deg_s",
+                "r_deg_s",
+                "du_m_s2",
+                "dv_m_s2",
+                "dw_m_s2",
+                "dp_deg_s2",
+                "dq_deg_s2",
+                "dr_deg_s2",
                 "target_wp_idx",
             ]
         )
@@ -126,10 +218,21 @@ def simulate_single_uuv_to_csv(
                 round(x, 3),
                 round(y, 3),
                 round(z, 3),
+                round(roll_deg, 6),
+                round(pitch_deg, 6),
                 round(yaw_deg, 6),
-                round(yaw_rate_deg_s, 6),
+                round(u_m_s, 6),
+                round(v_m_s, 6),
+                round(w_m_s, 6),
+                round(p_deg_s, 6),
+                round(q_deg_s, 6),
+                round(r_deg_s, 6),
                 0.0,
-                round(speed, 6),
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
                 0,
             ]
         )
@@ -156,48 +259,101 @@ def simulate_single_uuv_to_csv(
                     break
                 if seg_step >= max_steps:
                     x, y, z = tx, ty, tz
-                    speed = 0.0
-                    yaw_rate_deg_s = 0.0
+                    u_m_s = 0.0
+                    v_m_s = 0.0
+                    w_m_s = 0.0
+                    p_deg_s = 0.0
+                    q_deg_s = 0.0
+                    r_deg_s = 0.0
                     break
 
                 if horiz_dist > 1e-9:
                     desired_yaw_deg = math.degrees(math.atan2(dy, dx))
                 else:
                     desired_yaw_deg = yaw_deg
+                desired_pitch_deg = math.degrees(math.atan2(-dz, max(1e-9, horiz_dist)))
+                desired_pitch_deg = clamp(desired_pitch_deg, -60.0, 60.0)
 
                 yaw_err = wrap_deg(desired_yaw_deg - yaw_deg)
-                desired_yaw_rate = clamp(yaw_err / dt, -max_yaw_rate_deg_s, max_yaw_rate_deg_s)
-                delta_yaw_rate = clamp(
-                    desired_yaw_rate - yaw_rate_deg_s,
+                pitch_err = desired_pitch_deg - pitch_deg
+
+                desired_r_deg_s = clamp_abs(yaw_err / dt, max_yaw_rate_deg_s)
+                desired_q_deg_s = clamp_abs(pitch_err / dt, max_pitch_rate_deg_s)
+                if abs(u_m_s) > 1e-3:
+                    desired_roll_deg = math.degrees(
+                        math.atan((u_m_s * math.radians(r_deg_s)) / 9.81)
+                    )
+                else:
+                    desired_roll_deg = 0.0
+                desired_roll_deg = clamp(desired_roll_deg, -max_roll_deg, max_roll_deg)
+                roll_err = wrap_deg(desired_roll_deg - roll_deg)
+                desired_p_deg_s = clamp_abs(roll_err / dt, max_roll_rate_deg_s)
+
+                prev_u, prev_v, prev_w = u_m_s, v_m_s, w_m_s
+                prev_p, prev_q, prev_r = p_deg_s, q_deg_s, r_deg_s
+
+                r_deg_s += clamp(
+                    desired_r_deg_s - r_deg_s,
                     -max_yaw_accel_deg_s2 * dt,
                     max_yaw_accel_deg_s2 * dt,
                 )
-                yaw_rate_deg_s += delta_yaw_rate
-                yaw_rate_deg_s = clamp(yaw_rate_deg_s, -max_yaw_rate_deg_s, max_yaw_rate_deg_s)
-                yaw_deg = wrap_deg(yaw_deg + yaw_rate_deg_s * dt)
+                q_deg_s += clamp(
+                    desired_q_deg_s - q_deg_s,
+                    -max_pitch_accel_deg_s2 * dt,
+                    max_pitch_accel_deg_s2 * dt,
+                )
+                p_deg_s += clamp(
+                    desired_p_deg_s - p_deg_s,
+                    -max_roll_accel_deg_s2 * dt,
+                    max_roll_accel_deg_s2 * dt,
+                )
+                r_deg_s = clamp_abs(r_deg_s, max_yaw_rate_deg_s)
+                q_deg_s = clamp_abs(q_deg_s, max_pitch_rate_deg_s)
+                p_deg_s = clamp_abs(p_deg_s, max_roll_rate_deg_s)
 
-                heading_factor = max(0.0, math.cos(math.radians(abs(yaw_err))))
+                roll_deg = wrap_deg(roll_deg + p_deg_s * dt)
+                pitch_deg = clamp(pitch_deg + q_deg_s * dt, -85.0, 85.0)
+                yaw_deg = wrap_deg(yaw_deg + r_deg_s * dt)
+
                 desired_speed = min(max_speed_m_s, dist_3d / dt)
-                desired_speed *= max(0.15, heading_factor)
-                speed += clamp(desired_speed - speed, -max_accel_m_s2 * dt, max_accel_m_s2 * dt)
-                speed = clamp(speed, 0.0, max_speed_m_s)
+                unit_x, unit_y, unit_z = dx / dist_3d, dy / dist_3d, dz / dist_3d
+                vx_cmd, vy_cmd, vz_cmd = (
+                    desired_speed * unit_x,
+                    desired_speed * unit_y,
+                    desired_speed * unit_z,
+                )
+                u_cmd, v_cmd, w_cmd = world_to_body_velocity(
+                    vx_cmd, vy_cmd, vz_cmd, roll_deg, pitch_deg, yaw_deg
+                )
 
-                step_len = min(speed * dt, dist_3d)
-                yaw_rad = math.radians(yaw_deg)
-                step_xy = min(step_len, horiz_dist)
-                if horiz_dist > 1e-9:
-                    x += step_xy * math.cos(yaw_rad)
-                    y += step_xy * math.sin(yaw_rad)
+                u_m_s += clamp(u_cmd - u_m_s, -max_accel_m_s2 * dt, max_accel_m_s2 * dt)
+                v_m_s += clamp(v_cmd - v_m_s, -max_accel_m_s2 * dt, max_accel_m_s2 * dt)
+                w_m_s += clamp(w_cmd - w_m_s, -max_accel_m_s2 * dt, max_accel_m_s2 * dt)
+                speed_norm = math.sqrt(u_m_s * u_m_s + v_m_s * v_m_s + w_m_s * w_m_s)
+                if speed_norm > max_speed_m_s and speed_norm > 1e-9:
+                    scale = max_speed_m_s / speed_norm
+                    u_m_s *= scale
+                    v_m_s *= scale
+                    w_m_s *= scale
 
-                remain = max(0.0, step_len - step_xy)
-                if abs(dz) > 1e-9:
-                    if remain > 0:
-                        z += math.copysign(min(abs(dz), remain), dz)
-                    else:
-                        z += math.copysign(min(abs(dz), max_speed_m_s * dt * 0.2), dz)
+                vx, vy, vz = body_to_world_velocity(
+                    u_m_s, v_m_s, w_m_s, roll_deg, pitch_deg, yaw_deg
+                )
+                x += vx * dt
+                y += vy * dt
+                z += vz * dt
+
+                if distance((x, y, z), (tx, ty, tz)) <= 0.05:
+                    x, y, z = tx, ty, tz
 
                 step_idx += 1
                 t += dt
+                du = (u_m_s - prev_u) / dt
+                dv = (v_m_s - prev_v) / dt
+                dw = (w_m_s - prev_w) / dt
+                dp = (p_deg_s - prev_p) / dt
+                dq = (q_deg_s - prev_q) / dt
+                dr = (r_deg_s - prev_r) / dt
                 writer.writerow(
                     [
                         uuv_id,
@@ -206,10 +362,21 @@ def simulate_single_uuv_to_csv(
                         round(x, 3),
                         round(y, 3),
                         round(z, 3),
+                        round(roll_deg, 6),
+                        round(pitch_deg, 6),
                         round(yaw_deg, 6),
-                        round(yaw_rate_deg_s, 6),
-                        round(delta_yaw_rate / dt if dt > 0 else 0.0, 6),
-                        round(speed, 6),
+                        round(u_m_s, 6),
+                        round(v_m_s, 6),
+                        round(w_m_s, 6),
+                        round(p_deg_s, 6),
+                        round(q_deg_s, 6),
+                        round(r_deg_s, 6),
+                        round(du, 6),
+                        round(dv, 6),
+                        round(dw, 6),
+                        round(dp, 6),
+                        round(dq, 6),
+                        round(dr, 6),
                         wp_idx + 1,
                     ]
                 )
@@ -248,6 +415,16 @@ def simulate_multi_process(
     max_yaw_rate_deg_s = abs(math.degrees(max_yaw_rate_rad_s))
     if max_yaw_rate_deg_s <= 0:
         raise ValueError("init.json: uuv_template.max_yaw_rate_rad_s must be > 0")
+    max_pitch_rate_rad_s = float(template.get("max_pitch_rate_rad_s", max_yaw_rate_rad_s))
+    max_pitch_rate_deg_s = abs(math.degrees(max_pitch_rate_rad_s))
+    if max_pitch_rate_deg_s <= 0:
+        raise ValueError("init.json: uuv_template.max_pitch_rate_rad_s must be > 0")
+    if "max_roll_rate_rad_s" in template:
+        max_roll_rate_deg_s = abs(math.degrees(float(template.get("max_roll_rate_rad_s", 0.0))))
+    else:
+        max_roll_rate_deg_s = max_pitch_rate_deg_s
+    if max_roll_rate_deg_s <= 0:
+        raise ValueError("init.json: uuv_template.max_roll_rate_rad_s must be > 0 when provided")
 
     if "max_yaw_accel_deg_s2" in template:
         max_yaw_accel_deg_s2 = abs(float(template.get("max_yaw_accel_deg_s2", 0.0)))
@@ -256,6 +433,18 @@ def simulate_multi_process(
     else:
         # Fallback when no explicit yaw-accel is configured.
         max_yaw_accel_deg_s2 = max(30.0, 2.0 * max_yaw_rate_deg_s)
+    if "max_pitch_accel_deg_s2" in template:
+        max_pitch_accel_deg_s2 = abs(float(template.get("max_pitch_accel_deg_s2", 0.0)))
+    elif "max_pitch_accel_rad_s2" in template:
+        max_pitch_accel_deg_s2 = abs(math.degrees(float(template.get("max_pitch_accel_rad_s2", 0.0))))
+    else:
+        max_pitch_accel_deg_s2 = max(20.0, 2.0 * max_pitch_rate_deg_s)
+    if "max_roll_accel_deg_s2" in template:
+        max_roll_accel_deg_s2 = abs(float(template.get("max_roll_accel_deg_s2", 0.0)))
+    elif "max_roll_accel_rad_s2" in template:
+        max_roll_accel_deg_s2 = abs(math.degrees(float(template.get("max_roll_accel_rad_s2", 0.0))))
+    else:
+        max_roll_accel_deg_s2 = max(20.0, 2.0 * max_roll_rate_deg_s)
 
     paths: List[Dict] = path_cfg.get("paths", [])
     if not paths:
@@ -288,7 +477,11 @@ def simulate_multi_process(
                 max_speed_m_s,
                 max_accel_m_s2,
                 max_yaw_rate_deg_s,
+                max_pitch_rate_deg_s,
+                max_roll_rate_deg_s,
                 max_yaw_accel_deg_s2,
+                max_pitch_accel_deg_s2,
+                max_roll_accel_deg_s2,
                 sample_rate_hz,
                 out_path,
                 max(1, flush_rows),
