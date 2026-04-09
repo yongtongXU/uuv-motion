@@ -74,8 +74,8 @@ class MissionGUI:
         self.motion_running = False
 
         self.progress_queue: Optional[mp.Queue] = None
-        self.send_stop_event: Optional[mp.Event] = None
-        self.send_pause_event: Optional[mp.Event] = None
+        self.send_stop_event: Optional[mp.Event] = None # type: ignore
+        self.send_pause_event: Optional[mp.Event] = None # type: ignore
         self.send_thread: Optional[threading.Thread] = None
         self.motion_thread: Optional[threading.Thread] = None
 
