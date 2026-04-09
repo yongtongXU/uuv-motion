@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "generated_at_utc": "2026-04-09T21:05:59.052182+00:00",
+  "generated_at_utc": "2026-04-09T21:16:20.602703+00:00",
   "planner": {
     "type": "comb_no_obstacle",
     "sensor_width": 100.0,
