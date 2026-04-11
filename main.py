@@ -27,6 +27,7 @@ DEFAULT_TRAJ_DIR = ROOT / "trajectories"
 DEFAULT_PLANNED_IMG = ROOT / "planned_paths.png"
 DEFAULT_NET_FORMAT = ROOT / "config" / "network_format.json"
 DEFAULT_ENDPOINT_CFG = DEFAULT_ENDPOINTS
+DEFAULT_LOGO = ROOT / "config" / "logo.png"
 
 
 def count_csv_points(csv_path: Path) -> int:
@@ -68,6 +69,7 @@ class MissionGUI:
         self.path_json = path_json
         self.traj_dir = traj_dir
         self.init_cfg: Dict = {}
+        self.icon_image: Optional[tk.PhotoImage] = None
 
         self.sending = False
         self.send_paused = False
@@ -109,12 +111,22 @@ class MissionGUI:
 
         self.summary_var = tk.StringVar(value="发送状态统计: 待命=0, 正在发送=0, 暂停发送=0, 发送结束=0")
 
-        self.root.title("UUV Mission GUI")
-        self.root.geometry("1620x920")
+        self.root.title("UUV Mission GUI V1.0 by xyt13082@outlook.com")
+        self.root.geometry("1860x920")
+        self._set_window_icon()
         self._build_ui()
         self.load_init_to_ui()
         self.load_send_rows_from_path()
         self.draw_path_preview()
+
+    def _set_window_icon(self) -> None:
+        if not DEFAULT_LOGO.exists():
+            return
+        try:
+            self.icon_image = tk.PhotoImage(file=str(DEFAULT_LOGO))
+            self.root.iconphoto(True, self.icon_image)
+        except tk.TclError:
+            self.icon_image = None
 
     def _build_ui(self) -> None:
         top = ttk.Frame(self.root, padding=6)
