@@ -115,8 +115,8 @@ def make_er_frame(
             ]
         )
 
-    tokens.append(now_time_token() + "*")
-    return compute_length(",".join(tokens)) + ":" + log_tail_token() + "\n"
+    tokens.append(now_time_token() + "*&&")
+    return compute_length(",".join(tokens))
 
 
 def connect_with_retry(host: str, port: int, timeout_s: float, retry_s: float) -> socket.socket:

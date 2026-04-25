@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0",
+  "udp_host": "192.168.0.147",
+  "udp_port": 7000,
+  "eps_m": 80.0,
+  "min_samples": 1,
+  "window_s": 5.0,
+  "udp_interval_s": 1.0,
+  "re_lon": 121.71685,
+  "re_lat": 25.16955,
+  "endpoints": [
+    {
+      "uuv_id": "uuv_1",
+      "host": "192.168.0.127",
+      "port": 6001
+    },
+    {
+      "uuv_id": "uuv_2",
+      "host": "192.168.0.127",
+      "port": 6002
+    },
+    {
+      "uuv_id": "uuv_3",
+      "host": "192.168.0.127",
+      "port": 6003
+    },
+    {
+      "uuv_id": "uuv_4",
+      "host": "192.168.0.127",
+      "port": 6004
+    },
+    {
+      "uuv_id": "uuv_5",
+      "host": "192.168.0.127",
+      "port": 6005
+    },
+    {
+      "uuv_id": "uuv_6",
+      "host": "192.168.0.127",
+      "port": 6006
+    }
+  ]
+}

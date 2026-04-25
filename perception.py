@@ -92,7 +92,9 @@ def _decode_delimiter(value: str) -> str:
 
 
 def parse_er_frame(frame: str, uuv_id: str, source_port: int, recv_ts: Optional[float] = None) -> List[TargetObservation]:
+    # print("er recv")
     text = frame.strip()
+    # print(text)
     if not text:
         return []
     if text.endswith("&&"):
@@ -264,7 +266,7 @@ def format_tt_message(clusters: List[ClusteredTarget]) -> str:
                 "0",
             ]
         )
-    tokens.extend([stamp, "*&&:" + tail])
+    tokens.extend([stamp, "*&&"])
     return _compute_length(",".join(tokens))
 
 
@@ -305,7 +307,7 @@ def format_re_message(
         f"{sim_time:.3f}",
         str(int(status_code)),
         stamp,
-        "*&&:" + tail,
+        "*&&",
     ]
     return _compute_length(",".join(tokens))
 
@@ -447,19 +449,23 @@ class PerceptionHub:
 
     def _split_frames(self, buf: str, delimiter: str) -> Tuple[List[str], str]:
         frames: List[str] = []
-        delimiters = [delimiter]
-        if delimiter not in {"\n", "\r\n"}:
-            delimiters.extend(["\n", "\r\n"])
         while True:
-            found = [(buf.find(d), d) for d in delimiters if d and buf.find(d) >= 0]
-            if not found:
+            start = buf.find("$")
+            if start < 0:
+                if len(buf) > 65536:
+                    frames.append(buf)
+                    buf = ""
                 break
-            idx, delim = min(found, key=lambda item: item[0])
-            frames.append(buf[:idx])
-            buf = buf[idx + len(delim) :]
-        if len(buf) > 65536:
-            frames.append(buf)
-            buf = ""
+            if start > 0:
+                buf = buf[start:]
+            end = buf.find("&&", 1)
+            if end < 0:
+                if len(buf) > 65536:
+                    frames.append(buf)
+                    buf = ""
+                break
+            frames.append(buf[: end + 2])
+            buf = buf[end + 2 :]
         return frames, buf
 
     def _re_loop(self, uuv_id: str, conn: socket.socket, local_stop: threading.Event) -> None:
@@ -480,7 +486,7 @@ class PerceptionHub:
                 status_code=int(state.get("status_code", 0)),
             )
             try:
-                conn.sendall((msg + "\n").encode("utf-8"))
+                conn.sendall((msg).encode("utf-8"))
                 self.event_q.put({"type": "re", "uuv_id": uuv_id, "message": msg})
             except Exception as exc:
                 self.event_q.put({"type": "error", "uuv_id": uuv_id, "error": f"RE send failed: {exc}"})
@@ -542,7 +548,7 @@ class PerceptionPage(ttk.Frame):
 
         self.bind_host_var = tk.StringVar(value="127.0.0.1")
         self.base_port_var = tk.StringVar(value="6001")
-        self.delimiter_var = tk.StringVar(value="\\n")
+        self.delimiter_var = tk.StringVar(value="&&")
         self.udp_host_var = tk.StringVar(value="127.0.0.1")
         self.udp_port_var = tk.StringVar(value="7000")
         self.eps_var = tk.StringVar(value="80")
@@ -800,7 +806,7 @@ class PerceptionPage(ttk.Frame):
         try:
             self._refresh_port_rows()
             endpoints = self._endpoints_from_ui()
-            delimiter = _decode_delimiter(self.delimiter_var.get().strip() or "\\n")
+            delimiter = _decode_delimiter(self.delimiter_var.get().strip() or "&&")
             udp_host = self.udp_host_var.get().strip() or "127.0.0.1"
             udp_port = int(self.udp_port_var.get().strip())
             eps_m = float(self.eps_var.get().strip())
