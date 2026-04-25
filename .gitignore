@@ -85,6 +85,9 @@ htmlcov/
 *.tmp
 *.swp
 *.swo
+logs/*
+!logs/.gitkeep
+日志案例/
 
 # =======================
 # Others (常见)

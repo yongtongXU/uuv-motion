@@ -1,5 +1,6 @@
 ﻿import argparse
 import json
+import math
 import multiprocessing as mp
 import queue
 import threading
@@ -17,6 +18,7 @@ from network import (
     send_path_points,
     test_tcp_connection,
 )
+from perception import PerceptionPage
 from planning import INIT_PATH, PATH_PATH, plan_paths
 
 
@@ -83,6 +85,7 @@ class MissionGUI:
 
         self.send_item_map: Dict[str, str] = {}
         self.endpoint_item_map: Dict[str, str] = {}
+        self.uuv_state_by_id: Dict[str, Dict[str, float]] = {}
 
         self.area_len_var = tk.StringVar(value="10000")
         self.area_wid_var = tk.StringVar(value="10000")
@@ -118,6 +121,7 @@ class MissionGUI:
         self.load_init_to_ui()
         self.load_send_rows_from_path()
         self.draw_path_preview()
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
     def _set_window_icon(self) -> None:
         if not DEFAULT_LOGO.exists():
@@ -128,8 +132,21 @@ class MissionGUI:
         except tk.TclError:
             self.icon_image = None
 
+    def on_close(self) -> None:
+        if hasattr(self, "perception_page"):
+            self.perception_page.stop()
+        if self.send_stop_event is not None:
+            self.send_stop_event.set()
+        self.root.destroy()
+
     def _build_ui(self) -> None:
-        top = ttk.Frame(self.root, padding=6)
+        self.notebook = ttk.Notebook(self.root)
+        self.notebook.pack(fill=tk.BOTH, expand=True)
+
+        mission_page = ttk.Frame(self.notebook)
+        self.notebook.add(mission_page, text="任务规划与发送")
+
+        top = ttk.Frame(mission_page, padding=6)
         top.pack(fill=tk.X)
 
         ttk.Button(top, text="读取Init", command=self.load_init_to_ui).pack(side=tk.LEFT, padx=3)
@@ -143,7 +160,7 @@ class MissionGUI:
         ttk.Button(top, text="停止发送", command=self.on_stop_send).pack(side=tk.LEFT, padx=3)
         ttk.Button(top, text="预览路径", command=self.draw_path_preview).pack(side=tk.LEFT, padx=3)
 
-        body = ttk.Panedwindow(self.root, orient=tk.HORIZONTAL)
+        body = ttk.Panedwindow(mission_page, orient=tk.HORIZONTAL)
         body.pack(fill=tk.BOTH, expand=True, padx=8, pady=6)
 
         left = ttk.Frame(body)
@@ -263,9 +280,72 @@ class MissionGUI:
         self.log_text = tk.Text(log_frame, height=10)
         self.log_text.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
 
+        self.perception_page = PerceptionPage(
+            self.notebook,
+            init_path=self.init_path,
+            uuv_state_provider=self.get_uuv_state_for_re,
+        )
+        self.notebook.add(self.perception_page, text="感知信息")
+
     def log(self, msg: str) -> None:
         self.log_text.insert(tk.END, msg + "\n")
         self.log_text.see(tk.END)
+
+    def _origin_lon_lat(self) -> Tuple[float, float]:
+        scene = self.init_cfg.get("scene", {}) if self.init_cfg else {}
+        origin = scene.get("origin", {})
+        return float(origin.get("longitude", 0.0)), float(origin.get("latitude", 0.0))
+
+    def _ned_to_lon_lat(self, x: float, y: float) -> Tuple[float, float]:
+        origin_lon, origin_lat = self._origin_lon_lat()
+        lat = origin_lat + float(x) / 110540.0
+        denom = 111320.0 * max(0.01, math.cos(math.radians(origin_lat)))
+        lon = origin_lon + float(y) / denom
+        return lon, lat
+
+    def set_uuv_state(
+        self,
+        uid: str,
+        x: float,
+        y: float,
+        z: float,
+        roll: Optional[float] = None,
+        pitch: Optional[float] = None,
+        yaw: Optional[float] = None,
+        speed: Optional[float] = None,
+        sim_time: Optional[float] = None,
+        status_code: Optional[int] = None,
+    ) -> None:
+        prev = self.uuv_state_by_id.get(uid, {})
+        lon, lat = self._ned_to_lon_lat(x, y)
+        state = dict(prev)
+        state.update({"x": float(x), "y": float(y), "z": float(z), "lon": lon, "lat": lat})
+        if roll is not None:
+            state["roll"] = float(roll)
+        if pitch is not None:
+            state["pitch"] = float(pitch)
+        if yaw is not None:
+            state["yaw"] = float(yaw)
+        if speed is not None:
+            state["speed"] = float(speed)
+        if sim_time is not None:
+            state["t"] = float(sim_time)
+        if status_code is not None:
+            state["status_code"] = float(status_code)
+        state.setdefault("roll", 0.0)
+        state.setdefault("pitch", 0.0)
+        state.setdefault("yaw", 0.0)
+        state.setdefault("speed", 0.0)
+        state.setdefault("t", 0.0)
+        state.setdefault("status_code", 0.0)
+        self.uuv_state_by_id[uid] = state
+
+    def get_uuv_state_for_re(self, uid: str) -> Dict[str, float]:
+        state = self.uuv_state_by_id.get(uid)
+        if state:
+            return dict(state)
+        origin_lon, origin_lat = self._origin_lon_lat()
+        return {"lon": origin_lon, "lat": origin_lat, "z": 0.0, "status_code": 0.0}
 
     def load_init_to_ui(self) -> None:
         self.init_cfg = load_json(self.init_path)
@@ -276,13 +356,15 @@ class MissionGUI:
         self.sample_hz_var.set(str(scene.get("sample_rate_hz", 50)))
 
         self.uuv_tree.delete(*self.uuv_tree.get_children())
+        self.uuv_state_by_id.clear()
         for u in self.init_cfg.get("uuvs", []):
             pose = u.get("pose", {})
+            uid = str(u.get("id", "uuv"))
             self.uuv_tree.insert(
                 "",
                 tk.END,
                 values=(
-                    u.get("id", "uuv"),
+                    uid,
                     pose.get("x", 0.0),
                     pose.get("y", 0.0),
                     pose.get("z", 0.0),
@@ -290,6 +372,16 @@ class MissionGUI:
                     pose.get("pitch", 0.0),
                     pose.get("yaw", 0.0),
                 ),
+            )
+            self.set_uuv_state(
+                uid,
+                float(pose.get("x", 0.0)),
+                float(pose.get("y", 0.0)),
+                float(pose.get("z", 0.0)),
+                roll=float(pose.get("roll", 0.0)),
+                pitch=float(pose.get("pitch", 0.0)),
+                yaw=float(pose.get("yaw", 0.0)),
+                status_code=0,
             )
         self.log("[init] loaded")
         self.load_send_rows_from_path()
@@ -326,6 +418,16 @@ class MissionGUI:
             base.setdefault("twist", {"u": 0.0, "v": 0.0, "w": 0.0, "p": 0.0, "q": 0.0, "r": 0.0})
             base.setdefault("health", {"battery": 1.0, "status": "ready"})
             new_uuvs.append(base)
+            self.set_uuv_state(
+                str(uid),
+                pose["x"],
+                pose["y"],
+                pose["z"],
+                roll=pose["roll"],
+                pitch=pose["pitch"],
+                yaw=pose["yaw"],
+                status_code=0,
+            )
         self.init_cfg["uuvs"] = new_uuvs
 
         with self.init_path.open("w", encoding="utf-8") as f:
@@ -678,28 +780,50 @@ class MissionGUI:
                 vals[3] = evt.get("total", vals[3])
                 vals[9] = evt.get("port", vals[9])
             elif et == "uuv_progress":
+                x_val = float(evt.get("x", 0.0))
+                y_val = float(evt.get("y", 0.0))
+                z_val = float(evt.get("z", 0.0))
+                yaw_val = float(evt.get("yaw", 0.0))
+                t_val = float(evt.get("t", 0.0))
                 vals[1] = "正在发送"
                 vals[2] = evt.get("sent", vals[2])
                 vals[3] = evt.get("total", vals[3])
-                vals[4] = f"{float(evt.get('x', 0.0)):.2f}"
-                vals[5] = f"{float(evt.get('y', 0.0)):.2f}"
-                vals[6] = f"{float(evt.get('z', 0.0)):.2f}"
-                vals[7] = f"{float(evt.get('yaw', 0.0)):.4f}"
-                vals[8] = f"{float(evt.get('t', 0.0)):.2f}"
+                vals[4] = f"{x_val:.2f}"
+                vals[5] = f"{y_val:.2f}"
+                vals[6] = f"{z_val:.2f}"
+                vals[7] = f"{yaw_val:.4f}"
+                vals[8] = f"{t_val:.2f}"
+                self.set_uuv_state(
+                    uid,
+                    x_val,
+                    y_val,
+                    z_val,
+                    yaw=yaw_val,
+                    sim_time=t_val,
+                    status_code=1,
+                )
             elif et == "uuv_paused":
                 vals[1] = "暂停发送"
                 vals[2] = evt.get("sent", vals[2])
                 vals[3] = evt.get("total", vals[3])
+                if uid in self.uuv_state_by_id:
+                    self.uuv_state_by_id[uid]["status_code"] = 2.0
             elif et == "uuv_resumed":
                 vals[1] = "正在发送"
                 vals[2] = evt.get("sent", vals[2])
                 vals[3] = evt.get("total", vals[3])
+                if uid in self.uuv_state_by_id:
+                    self.uuv_state_by_id[uid]["status_code"] = 1.0
             elif et == "uuv_done":
                 vals[1] = "发送结束"
                 vals[2] = evt.get("sent", vals[2])
                 vals[3] = evt.get("total", vals[3])
+                if uid in self.uuv_state_by_id:
+                    self.uuv_state_by_id[uid]["status_code"] = 3.0
             elif et == "uuv_error":
                 vals[1] = "异常"
+                if uid in self.uuv_state_by_id:
+                    self.uuv_state_by_id[uid]["status_code"] = 9.0
 
             self.send_tree.item(item, values=tuple(vals))
             self.update_summary()
