@@ -6,6 +6,10 @@
     "sample_rate_hz": 50.0,
     "world_frame": "NED",
     "frame_note": "NED: North=X+, East=Y+, Down=Z+",
+    "origin": {
+      "longitude": 121.71685,
+      "latitude": 25.16955
+    },
     "water_density_kg_m3": 1025.0,
     "gravity_m_s2": 9.81
   },
