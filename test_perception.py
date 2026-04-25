@@ -5,7 +5,7 @@ import sys
 import time
 from typing import List, Tuple
 
-from perception import PerceptionHub
+from perception import PerceptionHub, format_tt_message
 
 
 ER_FRAME_NEAR_A = (
@@ -80,7 +80,18 @@ def drain_events(event_q: queue.Queue) -> List[dict]:
             return events
 
 
+def assert_empty_tt_count_is_zero() -> None:
+    tt_text = format_tt_message([])
+    tokens = [t.strip() for t in tt_text.split(",")]
+    assert len(tokens) >= 3, f"TT message missing target count: {tt_text!r}"
+    assert tokens[0] == "$TT", f"TT message has wrong head: {tt_text!r}"
+    assert tokens[2] == "0", f"empty TT target count should be 0, got {tokens[2]!r}"
+    assert tt_text.endswith("*&&"), f"TT message should end with *&&: {tt_text!r}"
+
+
 def run_test(host: str, base_port: int, udp_port: int, verbose: bool) -> None:
+    assert_empty_tt_count_is_zero()
+
     event_q: queue.Queue = queue.Queue()
     endpoints: List[Tuple[str, str, int]] = [(f"uuv_{i + 1}", host, base_port + i) for i in range(6)]
     hub = PerceptionHub(event_q)

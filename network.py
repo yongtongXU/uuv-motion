@@ -89,7 +89,7 @@ def calc_yaw(curr: Tuple[float, float, float], nxt: Tuple[float, float, float]) 
 def default_format_config() -> Dict:
     return {
         "separator": ",",
-        "fields": ["$", "uuv_id", "x", "y", "z", "pitch", "roll", "yaw", "time", "*", "&&"],
+        "fields": ["$", "uuv_id", "x", "y", "z", "pitch", "roll", "yaw", "time", "*&&"],
         "value_formats": {
             "x": "{:.3f}",
             "y": "{:.3f}",

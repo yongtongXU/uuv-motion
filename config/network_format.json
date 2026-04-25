@@ -34,8 +34,7 @@
                    "Spare_2",
                    "Spare_3",
                    "Time",
-                   "End",
-                   "&&"
+                   "End&&"
                ],
     "constants":  {
                       "Head":  "$RS",

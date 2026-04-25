@@ -249,7 +249,8 @@ def format_tt_message(clusters: List[ClusteredTarget]) -> str:
     now = time.time()
     stamp = time.strftime("%Y-%m-%d-%H:%M:%S", time.localtime(now)) + f".{int((now % 1) * 1_000_000):06d}"
     tail = time.strftime("%H-%M-%S", time.localtime(now)) + f".{int((now % 1) * 1_000_000):06d}"
-    tokens: List[str] = ["$TT", "Length", str(len(clusters))]
+    target_count = len(clusters)
+    tokens: List[str] = ["$TT", "Length", str(target_count)]
     for c in clusters:
         tokens.extend(
             [
